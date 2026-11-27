@@ -159,6 +159,6 @@ jobs:
         run: |
           gh release create "v$VERSION" out/* \
             -R "$GITHUB_REPOSITORY" \
-            --title "kestrel $VERSION" \
+            --title "Kestrel $VERSION" \
             --notes "Build of ${SHA:0:12}. Beta until promoted." \
             --prerelease
