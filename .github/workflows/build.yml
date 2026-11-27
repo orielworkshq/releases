@@ -86,7 +86,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-14]
+        os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - id: token
@@ -140,7 +140,7 @@ jobs:
 
   build-macos:
     needs: [prepare, test]
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - id: token
         uses: actions/create-github-app-token@v1
