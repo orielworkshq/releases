@@ -9,9 +9,13 @@ on:
         description: kestrel commit SHA or branch
         required: true
         default: main
+      publish:
+        description: Publish a beta release (off = build and test only)
+        type: boolean
+        default: false
 
 concurrency:
-  group: build
+  group: build-${{ github.event.client_payload.sha || inputs.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -19,7 +23,7 @@ permissions:
 
 env:
   APP_REPO: orielworkshq/kestrel
-  PYTHON_VERSION: "3.13"
+  PYTHON_VERSION: "3.15"
 
 jobs:
   prepare:
@@ -27,7 +31,18 @@ jobs:
     outputs:
       sha: ${{ steps.version.outputs.sha }}
       version: ${{ steps.version.outputs.version }}
+      publish: ${{ steps.mode.outputs.publish }}
     steps:
+      - id: mode
+        env:
+          EVENT: ${{ github.event_name }}
+          PUBLISH_INPUT: ${{ inputs.publish }}
+        run: |
+          if [ "$EVENT" = "repository_dispatch" ] || [ "$PUBLISH_INPUT" = "true" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
       - id: token
         uses: actions/create-github-app-token@v1
         with:
@@ -50,9 +65,14 @@ jobs:
             echo "::error::pyproject version $version != __version__ $code"
             exit 1
           fi
+          if ! echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::version $version must be MAJOR.MINOR.PATCH"
+            exit 1
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "sha=$(git -C app rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-      - env:
+      - if: steps.mode.outputs.publish == 'true'
+        env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
@@ -63,7 +83,11 @@ jobs:
 
   test:
     needs: prepare
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-14]
+    runs-on: ${{ matrix.os }}
     steps:
       - id: token
         uses: actions/create-github-app-token@v1
@@ -81,7 +105,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: python -m pip install --quiet -e ".[dev]"
+      - run: python -m pip install --quiet -c requirements-dev.lock -e ".[dev]"
       - run: python -m ruff check src tests packaging
       - run: python -m mypy src
       - run: python -m pytest -q
@@ -112,6 +136,7 @@ jobs:
           name: windows
           path: dist/kestrel-${{ needs.prepare.outputs.version }}-windows.zip
           if-no-files-found: error
+          retention-days: 14
 
   build-macos:
     needs: [prepare, test]
@@ -133,15 +158,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - run: LEADSPILOT_BUILD_PYTHON=python bash packaging/build-macos.sh
+      - run: KESTREL_BUILD_PYTHON=python bash packaging/build-macos.sh
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: dist/kestrel-${{ needs.prepare.outputs.version }}-macos.zip
+          path: |
+            dist/kestrel-${{ needs.prepare.outputs.version }}-macos.zip
+            dist/kestrel-${{ needs.prepare.outputs.version }}-macos.dmg
           if-no-files-found: error
+          retention-days: 14
 
   publish:
     needs: [prepare, build-windows, build-macos]
+    if: needs.prepare.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
