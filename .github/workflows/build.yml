@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: leadspilot commit SHA or branch
+        description: kestrel commit SHA or branch
         required: true
         default: main
 
@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 env:
-  APP_REPO: orielworkshq/leadspilot
+  APP_REPO: orielworkshq/kestrel
   PYTHON_VERSION: "3.13"
 
 jobs:
@@ -34,7 +34,7 @@ jobs:
           app-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           owner: orielworkshq
-          repositories: leadspilot
+          repositories: kestrel
       - uses: actions/checkout@v4
         with:
           repository: ${{ env.APP_REPO }}
@@ -45,7 +45,7 @@ jobs:
       - id: version
         run: |
           version=$(python3 -c "import tomllib; print(tomllib.load(open('app/pyproject.toml','rb'))['project']['version'])")
-          code=$(python3 -c "import re; print(re.search(r'__version__ = \"(.+?)\"', open('app/src/leadspilot/__init__.py').read()).group(1))")
+          code=$(python3 -c "import re; print(re.search(r'__version__ = \"(.+?)\"', open('app/src/kestrel/__init__.py').read()).group(1))")
           if [ "$version" != "$code" ]; then
             echo "::error::pyproject version $version != __version__ $code"
             exit 1
@@ -71,7 +71,7 @@ jobs:
           app-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           owner: orielworkshq
-          repositories: leadspilot
+          repositories: kestrel
       - uses: actions/checkout@v4
         with:
           repository: ${{ env.APP_REPO }}
@@ -96,7 +96,7 @@ jobs:
           app-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           owner: orielworkshq
-          repositories: leadspilot
+          repositories: kestrel
       - uses: actions/checkout@v4
         with:
           repository: ${{ env.APP_REPO }}
@@ -110,7 +110,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: dist/leadspilot-${{ needs.prepare.outputs.version }}-windows.zip
+          path: dist/kestrel-${{ needs.prepare.outputs.version }}-windows.zip
           if-no-files-found: error
 
   build-macos:
@@ -123,7 +123,7 @@ jobs:
           app-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
           owner: orielworkshq
-          repositories: leadspilot
+          repositories: kestrel
       - uses: actions/checkout@v4
         with:
           repository: ${{ env.APP_REPO }}
@@ -137,7 +137,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: dist/leadspilot-${{ needs.prepare.outputs.version }}-macos.zip
+          path: dist/kestrel-${{ needs.prepare.outputs.version }}-macos.zip
           if-no-files-found: error
 
   publish:
@@ -159,6 +159,6 @@ jobs:
         run: |
           gh release create "v$VERSION" out/* \
             -R "$GITHUB_REPOSITORY" \
-            --title "leadspilot $VERSION" \
+            --title "kestrel $VERSION" \
             --notes "Build of ${SHA:0:12}. Beta until promoted." \
             --prerelease
